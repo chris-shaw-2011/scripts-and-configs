@@ -1,2 +1,2 @@
-# scripts-and-configs
-Scripts and Confg Files
+# Scripts & Configs
+Scripts and configs that are used when setting up and configuring desktops and servers
