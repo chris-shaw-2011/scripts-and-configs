@@ -3,49 +3,69 @@
 # setup-auto-updates-and-notifications.sh
 #
 # GOALS / POLICY:
-# - Target: Proxmox VE (9.x) and generic Debian/Ubuntu servers/desktops.
-# - Keep the box as up-to-date and automated as possible WITHOUT major-dist upgrades:
+#
+# - Target environments:
+#   - Proxmox VE (9.x)
+#   - Generic Debian / Ubuntu servers and desktops
+#
+# - Keep the system fully up to date and automated WITHOUT major distro upgrades:
 #   - Enable unattended APT updates for all appropriate origins.
-#   - On Proxmox, use permissive patterns so repo metadata changes don’t break updates.
-#   - Allow minor/point Proxmox upgrades (e.g., 9.0 -> 9.1) but NOT major OS jumps.
-#   - Automatically reboot when required between 01:00–04:00 America/New_York (random per host).
+#   - On Proxmox, use permissive origin patterns so repo metadata changes do not break updates.
+#   - Allow minor / point Proxmox upgrades (e.g., 9.0 → 9.1), but NOT major OS jumps.
+#   - Automatically reboot when required, within a randomized window
+#     between 01:00–04:00 America/New_York (per-host randomization).
+#
+# - Authorization / reboot behavior:
+#   - Install or update a polkit rule that allows all regular users (UID ≥ 1000)
+#     to reboot the system via systemd/logind WITHOUT sudo.
+#   - This is required for remote sessions (SSH, XRDP) where no interactive
+#     polkit authentication agent may be present.
+#   - Rule is installed as:
+#       /etc/polkit-1/rules.d/00-allow-reboot-all-authenticated.rules
+#     (prefixed with 00- to ensure it is evaluated before distro defaults).
 #
 # - Email notifications via Gmail (msmtp):
-#   - Always send emails on BOOT and before REBOOT/SHUTDOWN, subject includes hostname.
-#   - Let unattended-upgrades send its own mails, but only on change/errors (MailReport=on-change).
-#   - Send DAILY health alert ONLY when there are issues:
+#   - Always send emails on BOOT and before REBOOT / SHUTDOWN.
+#   - Subjects always include the hostname.
+#   - unattended-upgrades sends mail only on changes/errors (MailReport=on-change).
+#
+#   - DAILY health alert (only when issues exist):
 #       * Failed systemd units
-#       * Low disk space on local disks (exclude CIFS/NFS/FUSE/etc.).
-#       * ZFS pool health/capacity issues (if ZFS exists and pools are present).
-#       * Reboot-required flag.
-#   - Send WEEKLY maintenance email ONLY when there are issues:
-#       * ZFS scrub command errors or non-healthy pools.
-#       * SMART disk health problems.
-#       * apt autoremove/clean errors.
-#   - Do NOT send “everything is OK” / “no issues” emails.
+#       * Low disk space on local filesystems (network/FUSE excluded)
+#       * ZFS pool health or high usage (only if pools exist)
+#       * Reboot-required flag
+#
+#   - WEEKLY maintenance alert (only when issues exist):
+#       * ZFS scrub or pool health problems
+#       * SMART disk health failures
+#       * apt autoremove / clean errors
+#
+#   - No “everything is OK” emails are sent.
 #
 # - ZFS / SMART behavior:
-#   - If ZFS tools or pools are missing, ZFS checks should silently skip.
-#   - If smartctl or SMART is unavailable on a device, skip it.
+#   - If ZFS tools or pools are missing, ZFS checks are skipped silently.
+#   - If SMART is unavailable for a device, that device is skipped.
 #
 # - Timezone / timestamps:
-#   - Force system timezone to America/New_York (if timedatectl is available).
-#   - All dates in emails use the host timezone (America/New_York after this script).
+#   - Force system timezone to America/New_York when possible.
+#   - All email timestamps use the system timezone.
 #
-# - General design:
+# - Design principles:
 #   - Script is idempotent and safe to re-run.
-#   - Always back up important config files with timestamp suffix before overwriting.
-#   - Prefer systemd timers/services over cron for periodic jobs where possible.
+#   - Important config files are backed up with timestamped .bak suffixes.
+#   - Prefer systemd services/timers over cron where possible.
 #
-# - Credentials reuse / prompt logic:
-#   - If /etc/msmtprc exists and has a user line:
-#       * Show the existing email.
-#       * Ask if it should be reused.
-#       * If reused and a password is present, reuse that password.
-#       * If changed, prompt for new email and new app password.
+# - Credential reuse behavior:
+#   - If /etc/msmtprc exists and contains a user:
+#       * Show the existing email address.
+#       * Prompt whether it should be reused.
+#       * Reuse the existing app password when present.
 #
 # To download and run this script:
-# curl -sSL https://gist.githubusercontent.com/chris-shaw-2011/9b78ea951d01c05d41ad7ce5bad4e13e/raw/setup-auto-updates-and-notifications.sh -o ~/setup-auto-updates-and-notifications.sh && chmod +x ~/setup-auto-updates-and-notifications.sh && sudo ~/setup-auto-updates-and-notifications.sh
+# curl -sSL https://gist.githubusercontent.com/chris-shaw-2011/9b78ea951d01c05d41ad7ce5bad4e13e/raw/setup-auto-updates-and-notifications.sh \
+#   -o ~/setup-auto-updates-and-notifications.sh && \
+#   chmod +x ~/setup-auto-updates-and-notifications.sh && \
+#   sudo ~/setup-auto-updates-and-notifications.sh
 
 set -e
 
@@ -82,6 +102,54 @@ is_proxmox() {
     return 1
   fi
 }
+
+ensure_polkit_reboot_rule() {
+  # Allow non-sudo "regular" users (uid >= 1000) to reboot via logind without interactive auth.
+  # This is important for remote desktop sessions (e.g., XRDP) and SSH where no polkit agent may be available.
+  #
+  # Rule ordering matters on some distros; prefix with 00- so it evaluates before default rules.
+  local rule_path="/etc/polkit-1/rules.d/00-allow-reboot-all-authenticated.rules"
+  local tmp="$(mktemp)"
+
+  # Skip if polkit isn't installed or rules directory doesn't exist.
+  if [ ! -d /etc/polkit-1/rules.d ]; then
+    return 0
+  fi
+
+  cat > "$tmp" <<'EOF'
+polkit.addRule(function(action, subject) {
+    // Allow reboot for regular (non-system) users (UIDs >= 1000).
+    // Works for remote sessions (SSH/XRDP) without requiring interactive auth agents.
+    if (subject.uid < 1000) {
+        return;
+    }
+
+    if (action.id == "org.freedesktop.login1.reboot" ||
+        action.id == "org.freedesktop.login1.reboot-multiple-sessions" ||
+        action.id == "org.freedesktop.login1.reboot-ignore-inhibit" ||
+        action.id == "org.freedesktop.login1.reboot-multiple-sessions-ignore-inhibit") {
+        return polkit.Result.YES;
+    }
+});
+EOF
+
+  # If file exists and is identical, do nothing.
+  if [ -f "$rule_path" ] && cmp -s "$tmp" "$rule_path"; then
+    rm -f "$tmp"
+    return 0
+  fi
+
+  backup_if_exists "$rule_path"
+  install -o root -g root -m 0644 "$tmp" "$rule_path"
+  rm -f "$tmp"
+
+  # Reload polkit so the rule takes effect immediately.
+  if command -v systemctl >/dev/null 2>&1; then
+    systemctl restart polkit 2>/dev/null || true
+  fi
+}
+
+ensure_polkit_reboot_rule
 
 # Read existing msmtp config so we can offer reuse of email/password
 EXISTING_GMAIL_USER=""
@@ -545,7 +613,9 @@ echo "Writing systemd units for DAILY health check..."
 backup_if_exists /etc/systemd/system/daily-health-check.service
 cat > /etc/systemd/system/daily-health-check.service <<EOF
 [Unit]
-Description=Daily health check and alert email
+Description=Daily health check email (only on issues)
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=oneshot
@@ -555,10 +625,10 @@ EOF
 backup_if_exists /etc/systemd/system/daily-health-check.timer
 cat > /etc/systemd/system/daily-health-check.timer <<EOF
 [Unit]
-Description=Run daily health check once per day
+Description=Run daily health check (only email on issues)
 
 [Timer]
-OnCalendar=*-*-* 03:00
+OnCalendar=*-*-* 07:00:00
 Persistent=true
 
 [Install]
@@ -569,7 +639,9 @@ echo "Writing systemd units for WEEKLY maintenance..."
 backup_if_exists /etc/systemd/system/weekly-maintenance.service
 cat > /etc/systemd/system/weekly-maintenance.service <<EOF
 [Unit]
-Description=Weekly maintenance (ZFS scrub, SMART, cleanup)
+Description=Weekly maintenance email (only on issues)
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=oneshot
@@ -579,17 +651,17 @@ EOF
 backup_if_exists /etc/systemd/system/weekly-maintenance.timer
 cat > /etc/systemd/system/weekly-maintenance.timer <<EOF
 [Unit]
-Description=Run weekly maintenance once per week
+Description=Run weekly maintenance (only email on issues)
 
 [Timer]
-OnCalendar=Sun *-*-* 03:30
+OnCalendar=Sun *-*-* 08:00:00
 Persistent=true
 
 [Install]
 WantedBy=timers.target
 EOF
 
-echo "Reloading systemd and enabling services/timers..."
+echo "Enabling boot/reboot notifications + health/maintenance timers..."
 systemctl daemon-reexec
 systemctl daemon-reload
 # Do NOT use --now here to avoid fake reboot/boot emails on install
@@ -599,11 +671,7 @@ systemctl enable notify-before-reboot.service
 systemctl enable --now daily-health-check.timer
 systemctl enable --now weekly-maintenance.timer
 
-echo "Ensuring /etc/aliases exists..."
-[ -f /etc/aliases ] || touch /etc/aliases
-backup_if_exists "/etc/aliases"
-
-echo "Adding aliases for all local users (UID >= 1000)..."
+echo "Updating /etc/aliases for all local users (uid >= 1000)..."
 getent passwd | awk -F: '$3 >= 1000 && $1 != "nobody" { print $1 }' | while read -r user; do
   update_alias "$user" "$TO_EMAIL"
 done
