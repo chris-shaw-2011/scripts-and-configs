@@ -82,7 +82,7 @@ Each sub-script can be run independently:
 
 ```bash
 sudo ./polkit-reboot.sh
-sudo ./set-timezone.sh
+sudo ./timezone-set.sh
 sudo ./msmtp-gmail.sh
 sudo ./apt-auto-updates.sh
 sudo ./boot-notifications.sh

@@ -110,7 +110,7 @@ log_info "Step 1: Setting up polkit reboot rule..."
 log_info ""
 
 log_info "Step 2: Setting system timezone..."
-"$SCRIPT_DIR/set-timezone.sh" "$@"
+"$SCRIPT_DIR/timezone-set.sh" "$@"
 log_info ""
 log_info ""
 
