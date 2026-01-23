@@ -56,10 +56,9 @@
 #   - Each sub-script is independent and can be run separately.
 #
 # To download and run this script:
-# curl -sSL https://gist.githubusercontent.com/chris-shaw-2011/9b78ea951d01c05d41ad7ce5bad4e13e/raw/setup-auto-updates-and-notifications.sh \
-#   -o ~/setup-auto-updates-and-notifications.sh && \
-#   chmod +x ~/setup-auto-updates-and-notifications.sh && \
-#   sudo ~/setup-auto-updates-and-notifications.sh
+#   git clone https://github.com/chris-shaw-2011/scripts-and-configs.git \ 
+#   cd scripts-and-configs/linux \
+#   sudo ./setup.sh \
 
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 
@@ -68,6 +67,37 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # load shared helpers and require root (forward args to common.sh)
 . "$SCRIPT_DIR/common.sh" "$SCRIPT_NAME" "$@"
+
+# If this is a git working tree and clean, pull latest changes (fast-forward only)
+if [ "${SETUP_RESTARTED:-0}" = "1" ]; then
+	log_debug "SETUP_RESTARTED=1; skipping automatic repo update to avoid restart loop"
+else
+	if ! command -v git >/dev/null 2>&1; then
+		log_warn "git not available; skipping automatic repo update for $SCRIPT_DIR"
+	else
+		if ! git -C "$SCRIPT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+			log_warn "$SCRIPT_DIR is not a git working tree; skipping automatic repo update"
+		else
+			if [ -n "$(git -C "$SCRIPT_DIR" status --porcelain)" ]; then
+				log_warn "Uncommitted changes in $SCRIPT_DIR; skipping git pull to avoid conflicts"
+			else
+				log_info "Repository is clean — pulling latest changes for $SCRIPT_DIR"
+				OLD_HEAD=$(git -C "$SCRIPT_DIR" rev-parse --verify HEAD)
+				if git -C "$SCRIPT_DIR" pull --ff-only; then
+					NEW_HEAD=$(git -C "$SCRIPT_DIR" rev-parse --verify HEAD)
+					if [ "$OLD_HEAD" != "$NEW_HEAD" ]; then
+						log_info "Repository updated (HEAD changed). Restarting setup script to apply updates..."
+						exec env SETUP_RESTARTED=1 "$SCRIPT_DIR/$SCRIPT_NAME" "$@"
+					else
+						log_info "Repository up-to-date; no restart needed"
+					fi
+				else
+					log_warn "git pull failed or would require merge; keeping current files"
+				fi
+			fi
+		fi
+	fi
+fi
 
 log_info "======================================================================"
 log_info "Linux Desktop/Server Setup Script"
