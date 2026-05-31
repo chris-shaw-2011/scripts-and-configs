@@ -84,9 +84,9 @@ else
 fi
 
 log_debug "Updating /etc/aliases for all local users (uid >= 1000)..."
-getent passwd | awk -F: '$3 >= 1000 && $1 != "nobody" { print $1 }' | while read -r user; do
+while read -r user; do
   update_alias "$user" "$TO_EMAIL" || CHANGED=1
-done
+done < <(getent passwd | awk -F: '$3 >= 1000 && $1 != "nobody" { print $1 }')
 
 update_alias root "$TO_EMAIL" || CHANGED=1
 
