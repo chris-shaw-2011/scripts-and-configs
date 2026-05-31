@@ -173,7 +173,7 @@ fi
 # SMART health checking
 ########################
 if command -v smartctl >/dev/null 2>&1; then
-  DEVICES=$(lsblk -ndo NAME,TYPE | awk '$2=="disk"{print "/dev/"$1}')
+  DEVICES=$(lsblk -ndo NAME,TYPE | awk '$2=="disk" && $1 !~ /^zd[0-9]+$/ {print "/dev/"$1}')
   for d in $DEVICES; do
     OUT=$(smartctl -H "$d" 2>&1 || true)
 
@@ -181,7 +181,7 @@ if command -v smartctl >/dev/null 2>&1; then
       continue
     fi
 
-    if ! echo "$OUT" | grep -q "overall-health self-assessment test result: PASSED"; then
+    if ! echo "$OUT" | grep -Eq "(overall-health self-assessment test result: PASSED|SMART Health Status: OK)"; then
       ISSUES=1
       append ""
       append "=== SMART health issue on device: $d ==="
