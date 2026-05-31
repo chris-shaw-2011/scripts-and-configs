@@ -124,6 +124,50 @@ Each sub-script can be edited to customize behavior. Key files:
 - `/etc/systemd/system/` — Unit files for timers and services
 - `/etc/apt/apt.conf.d/` — APT and unattended-upgrades configuration
 
+## Undo / Rollback
+
+The scripts are designed to be safe to re-run, but they do install system files and enable systemd units. Before overwriting an existing file, helpers create timestamped backups next to the original file using the pattern `<path>.YYYY-MM-DDTHH-MM-SS.bak`.
+
+To roll back a changed config file, find the backup you want and copy it over the active file:
+
+```bash
+sudo ls -1 /etc/msmtprc.*.bak /etc/crontab.*.bak /etc/apt/apt.conf.d/*.bak /etc/systemd/system/*.bak 2>/dev/null
+sudo cp /path/to/selected.backup.bak /path/to/original-file
+```
+
+To disable installed timers and services:
+
+```bash
+sudo systemctl disable --now daily-health-check.timer weekly-maintenance.timer
+sudo systemctl disable notify-after-boot.service notify-before-reboot.service
+sudo systemctl daemon-reload
+```
+
+To remove files installed by the notification and health-check scripts:
+
+```bash
+sudo rm -f /usr/local/bin/notify-after-boot.sh /usr/local/bin/notify-before-reboot.sh
+sudo rm -f /usr/local/bin/daily-health-check.sh /usr/local/bin/weekly-maintenance.sh
+sudo rm -f /etc/systemd/system/notify-after-boot.service /etc/systemd/system/notify-before-reboot.service
+sudo rm -f /etc/systemd/system/daily-health-check.service /etc/systemd/system/daily-health-check.timer
+sudo rm -f /etc/systemd/system/weekly-maintenance.service /etc/systemd/system/weekly-maintenance.timer
+sudo systemctl daemon-reload
+```
+
+To undo the polkit reboot rule:
+
+```bash
+sudo rm -f /etc/polkit-1/rules.d/00-allow-reboot-all-authenticated.rules
+sudo systemctl restart polkit
+```
+
+To stop unattended upgrades from this setup, disable the timers and restore or remove the apt config files:
+
+```bash
+sudo systemctl disable --now apt-daily.timer apt-daily-upgrade.timer
+sudo rm -f /etc/apt/apt.conf.d/20auto-upgrades /etc/apt/apt.conf.d/50unattended-upgrades
+```
+
 ## Troubleshooting
 
 - **git pull fails**: If your working directory has uncommitted changes, the auto-pull is skipped. Commit or stash your changes and re-run.
