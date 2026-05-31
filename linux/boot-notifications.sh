@@ -22,11 +22,16 @@ UPTIME=$(uptime -s)
 SUBJECT="BOOTED: ${HOSTNAME}"
 BODY="The server ${HOSTNAME} has BOOTED UP at ${NOW}.\nUptime started at: ${UPTIME}."
 TO="__TO_EMAIL__"
-while true; do
-  echo -e "${BODY}" | mail -s "${SUBJECT}" "$TO" && break
-  echo "[$(date)] Mail send failed, retrying in 5s..."
-  sleep 5
+MAX_ATTEMPTS=12
+for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
+  echo -e "${BODY}" | mail -s "${SUBJECT}" "$TO" && exit 0
+  if [ "$attempt" -lt "$MAX_ATTEMPTS" ]; then
+    echo "[$(date)] Mail send failed, retrying in 5s... (${attempt}/${MAX_ATTEMPTS})"
+    sleep 5
+  fi
 done
+echo "[$(date)] Mail send failed after ${MAX_ATTEMPTS} attempts; giving up."
+exit 1
 EOF
 )
 
@@ -74,6 +79,7 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/notify-after-boot.sh
+TimeoutStartSec=90
 
 [Install]
 WantedBy=multi-user.target
