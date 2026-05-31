@@ -78,7 +78,7 @@ if write_file_if_changed /etc/msmtprc "$MSMTP_CONF"; then
   log_debug "/etc/msmtprc unchanged"
 else
   log_info "Wrote /etc/msmtprc"
-  chmod 644 /etc/msmtprc
+  chmod 600 /etc/msmtprc
   chown root:root /etc/msmtprc
   CHANGED=1
 fi
