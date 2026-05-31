@@ -115,9 +115,9 @@ if echo "$CURRENT_CRONTAB" | grep -q '^MAILTO='; then
 else
   # Prepend MAILTO to existing crontab
   if [ -n "$CURRENT_CRONTAB" ]; then
-    NEW_CRONTAB="MAILTO=\"$TO_EMAIL\"\n$CURRENT_CRONTAB"
+    printf -v NEW_CRONTAB 'MAILTO="%s"\n%s' "$TO_EMAIL" "$CURRENT_CRONTAB"
   else
-    NEW_CRONTAB="MAILTO=\"$TO_EMAIL\"\n"
+    printf -v NEW_CRONTAB 'MAILTO="%s"\n' "$TO_EMAIL"
   fi
 fi
 
