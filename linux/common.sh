@@ -67,8 +67,9 @@ timestamp() {
 backup_if_exists() {
   local path="$1"
   if [ -f "$path" ]; then
-    cp "$path" "${path}.$(timestamp).bak"
-    log_info "Backed up $path → ${path}.$(timestamp).bak"
+    local backup_path="${path}.$(timestamp).bak"
+    cp "$path" "$backup_path"
+    log_info "Backed up $path -> $backup_path"
   fi
 }
 
