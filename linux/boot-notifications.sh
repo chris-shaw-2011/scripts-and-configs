@@ -21,7 +21,7 @@ NOW=$(date)
 UPTIME=$(uptime -s)
 SUBJECT="BOOTED: ${HOSTNAME}"
 BODY="The server ${HOSTNAME} has BOOTED UP at ${NOW}.\nUptime started at: ${UPTIME}."
-TO="$TO_EMAIL"
+TO="__TO_EMAIL__"
 while true; do
   echo -e "${BODY}" | mail -s "${SUBJECT}" "$TO" && break
   echo "[$(date)] Mail send failed, retrying in 5s..."
@@ -37,13 +37,14 @@ NOW=$(date)
 UPTIME=$(uptime -p)
 SUBJECT="REBOOTING: ${HOSTNAME}"
 BODY="The server ${HOSTNAME} is about to REBOOT or SHUT DOWN at ${NOW}.\nIt has been ${UPTIME}."
-TO="$TO_EMAIL"
+TO="__TO_EMAIL__"
 echo -e "${BODY}" | mail -s "${SUBJECT}" "$TO"
 EOF
 )
 
-# Replace $TO_EMAIL placeholder in NOTIFY_BOOT
-NOTIFY_BOOT=$(echo "$NOTIFY_BOOT" | sed "s|\$TO_EMAIL|$TO_EMAIL|g")
+# Replace email placeholders in generated notification scripts.
+NOTIFY_BOOT=$(echo "$NOTIFY_BOOT" | sed "s|__TO_EMAIL__|$TO_EMAIL|g")
+NOTIFY_REBOOT=$(echo "$NOTIFY_REBOOT" | sed "s|__TO_EMAIL__|$TO_EMAIL|g")
 
 CHANGED=0
 if write_file_if_changed /usr/local/bin/notify-after-boot.sh "$NOTIFY_BOOT"; then
