@@ -11,8 +11,8 @@
 #   - Generic Debian / Ubuntu servers and desktops
 #
 # - Keep the system fully up to date and automated WITHOUT major distro upgrades:
-#   - Enable unattended APT updates for all appropriate origins.
-#   - On Proxmox, use permissive origin patterns so repo metadata changes do not break updates.
+#   - Enable unattended APT updates for every configured APT origin.
+#   - Use a broad origin pattern so third-party repositories are covered.
 #   - Allow minor / point Proxmox upgrades (e.g., 9.0 → 9.1), but NOT major OS jumps.
 #   - Automatically reboot when required, within a randomized window
 #     between 01:00–04:00 America/New_York (per-host randomization).
@@ -134,7 +134,7 @@ log_info "======================================================================
 log_info "Setup complete."
 log_info "======================================================================"
 log_info " - Automatic APT updates + randomized reboots between 01:00-04:00 ET are enabled."
-log_info " - On Proxmox, unattended-upgrades uses permissive Debian/Proxmox patterns that don't crash or silently skip."
+log_info " - unattended-upgrades uses a broad origin pattern so all configured APT sources are covered."
 log_info " - Daily health checks only email on issues (local disks/ZFS only, and only if pools actually exist)."
 log_info " - Weekly maintenance only emails on issues."
 log_info " - Boot/reboot events email on real boots/reboots, and all subjects include hostname."
