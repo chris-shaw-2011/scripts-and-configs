@@ -39,7 +39,9 @@ Automated setup and maintenance scripts for Debian/Ubuntu servers and desktops, 
 - SMART disk health failures
 - apt autoremove / clean errors
 
-**Note:** No "everything is OK" emails are sent.
+**Note:** No "everything is OK" emails are sent. When health issues exist, the
+latest daily and weekly issue reports are also shown on SSH/login shells and
+interactive Bash terminals.
 
 ### Storage & Monitoring
 - ZFS tools or pools: skipped silently if unavailable
@@ -123,6 +125,7 @@ Each sub-script can be edited to customize behavior. Key files:
 - `/etc/msmtprc` — msmtp configuration
 - `/etc/systemd/system/` — Unit files for timers and services
 - `/etc/apt/apt.conf.d/` — APT and unattended-upgrades configuration
+- `/var/lib/local-health-checks/` — Saved health issue reports shown at terminal startup
 
 ## Undo / Rollback
 
@@ -148,6 +151,9 @@ To remove files installed by the notification and health-check scripts:
 ```bash
 sudo rm -f /usr/local/bin/notify-after-boot.sh /usr/local/bin/notify-before-reboot.sh
 sudo rm -f /usr/local/bin/daily-health-check.sh /usr/local/bin/weekly-maintenance.sh
+sudo rm -rf /var/lib/local-health-checks
+sudo rm -f /etc/profile.d/local-health-check-alert.sh
+sudo sed -i '/# BEGIN local health check terminal alert/,/# END local health check terminal alert/d' /etc/bash.bashrc
 sudo rm -f /etc/systemd/system/notify-after-boot.service /etc/systemd/system/notify-before-reboot.service
 sudo rm -f /etc/systemd/system/daily-health-check.service /etc/systemd/system/daily-health-check.timer
 sudo rm -f /etc/systemd/system/weekly-maintenance.service /etc/systemd/system/weekly-maintenance.timer

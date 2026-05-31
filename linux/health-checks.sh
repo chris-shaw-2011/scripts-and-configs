@@ -30,6 +30,8 @@ DAILY_HEALTH_CHECK=$(cat <<'EOF'
 #!/bin/bash
 TO="__TO_EMAIL__"
 HOSTNAME=$(hostname)
+ALERT_DIR=/var/lib/local-health-checks
+ALERT_FILE="${ALERT_DIR}/daily-issues.txt"
 REPORT=""
 ISSUES=0
 
@@ -112,8 +114,14 @@ if [ -f /var/run/reboot-required ]; then
 fi
 
 if [ "$ISSUES" -eq 1 ]; then
+  mkdir -p "$ALERT_DIR"
+  chmod 755 "$ALERT_DIR"
+  printf "%s\n" "$REPORT" > "$ALERT_FILE"
+  chmod 644 "$ALERT_FILE"
   SUBJECT="HEALTH ALERT (daily): ${HOSTNAME}"
   echo -e "$REPORT" | mail -s "$SUBJECT" "$TO"
+else
+  rm -f "$ALERT_FILE"
 fi
 EOF
 )
@@ -134,6 +142,8 @@ WEEKLY_MAINTENANCE=$(cat <<'EOF'
 #!/bin/bash
 TO="__TO_EMAIL__"
 HOSTNAME=$(hostname)
+ALERT_DIR=/var/lib/local-health-checks
+ALERT_FILE="${ALERT_DIR}/weekly-issues.txt"
 REPORT=""
 ISSUES=0
 
@@ -219,8 +229,14 @@ fi
 # Send email ONLY if any issues were detected
 ############################################
 if [ "$ISSUES" -ne 0 ]; then
+  mkdir -p "$ALERT_DIR"
+  chmod 755 "$ALERT_DIR"
+  printf "%s\n" "$REPORT" > "$ALERT_FILE"
+  chmod 644 "$ALERT_FILE"
   SUBJECT="WEEKLY MAINTENANCE ISSUES: ${HOSTNAME}"
   echo -e "$REPORT" | mail -s "$SUBJECT" "$TO"
+else
+  rm -f "$ALERT_FILE"
 fi
 EOF
 )
@@ -287,10 +303,84 @@ WantedBy=timers.target
 EOF
 )
 
+HEALTH_ALERT_PROFILE=$(cat <<'EOF'
+# Show saved health check issues on interactive login shells.
+if [ -n "${LOCAL_HEALTH_CHECK_ALERT_SHOWN:-}" ]; then
+  return 0 2>/dev/null || exit 0
+fi
+
+case $- in
+  *i*) ;;
+  *) return 0 2>/dev/null || exit 0 ;;
+esac
+
+if [ ! -t 1 ]; then
+  return 0 2>/dev/null || exit 0
+fi
+
+ALERT_DIR=/var/lib/local-health-checks
+if [ ! -d "$ALERT_DIR" ]; then
+  return 0 2>/dev/null || exit 0
+fi
+
+LOCAL_HEALTH_CHECK_ALERT_SHOWN=1
+found=0
+
+for alert_file in "$ALERT_DIR"/*-issues.txt; do
+  [ -f "$alert_file" ] || continue
+
+  if [ "$found" -eq 0 ]; then
+    printf "\n*** System health issues detected ***\n\n"
+    found=1
+  fi
+
+  printf -- "----- %s -----\n" "$(basename "$alert_file")"
+  cat "$alert_file"
+  printf "\n"
+done
+EOF
+)
+
+HEALTH_ALERT_BASHRC_SNIPPET=$(cat <<'EOF'
+# BEGIN local health check terminal alert
+if [ -r /etc/profile.d/local-health-check-alert.sh ]; then
+  . /etc/profile.d/local-health-check-alert.sh
+fi
+# END local health check terminal alert
+EOF
+)
+
 write_file_if_changed /etc/systemd/system/daily-health-check.service "$DAILY_SERVICE" || CHANGED=1
 write_file_if_changed /etc/systemd/system/daily-health-check.timer "$DAILY_TIMER" || CHANGED=1
 write_file_if_changed /etc/systemd/system/weekly-maintenance.service "$WEEKLY_SERVICE" || CHANGED=1
 write_file_if_changed /etc/systemd/system/weekly-maintenance.timer "$WEEKLY_TIMER" || CHANGED=1
+if write_file_if_changed /etc/profile.d/local-health-check-alert.sh "$HEALTH_ALERT_PROFILE"; then
+  :
+else
+  CHANGED=1
+  chmod 644 /etc/profile.d/local-health-check-alert.sh
+fi
+
+BASHRC_PATH=/etc/bash.bashrc
+if [ -f "$BASHRC_PATH" ]; then
+  CURRENT_BASHRC=$(cat "$BASHRC_PATH")
+else
+  CURRENT_BASHRC=""
+fi
+
+BASHRC_WITHOUT_HEALTH_ALERT=$(printf "%s\n" "$CURRENT_BASHRC" | awk '
+  $0 == "# BEGIN local health check terminal alert" { skip=1; next }
+  $0 == "# END local health check terminal alert" { skip=0; next }
+  !skip { print }
+')
+
+if [ -n "$BASHRC_WITHOUT_HEALTH_ALERT" ]; then
+  printf -v NEW_BASHRC "%s\n\n%s" "$BASHRC_WITHOUT_HEALTH_ALERT" "$HEALTH_ALERT_BASHRC_SNIPPET"
+else
+  NEW_BASHRC="$HEALTH_ALERT_BASHRC_SNIPPET"
+fi
+
+write_file_if_changed "$BASHRC_PATH" "$NEW_BASHRC" || CHANGED=1
 
 if [ "$CHANGED" -eq 1 ]; then
   log_info "Reloading systemd configuration..."
