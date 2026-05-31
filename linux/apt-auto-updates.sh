@@ -3,7 +3,7 @@
 # apt-auto-updates.sh
 #
 # Configures automatic APT updates and reboots via unattended-upgrades.
-# Adapts configuration based on whether this is a Proxmox or generic Debian/Ubuntu system.
+# Uses one broad origin policy so all configured APT sources are covered.
 
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 

@@ -78,9 +78,15 @@ if write_file_if_changed /etc/msmtprc "$MSMTP_CONF"; then
   log_debug "/etc/msmtprc unchanged"
 else
   log_info "Wrote /etc/msmtprc"
+  CHANGED=1
+fi
+
+if [ -f /etc/msmtprc ]; then
+  if [ "$(stat -c '%a:%U:%G' /etc/msmtprc 2>/dev/null || true)" != "600:root:root" ]; then
+    CHANGED=1
+  fi
   chmod 600 /etc/msmtprc
   chown root:root /etc/msmtprc
-  CHANGED=1
 fi
 
 log_debug "Updating /etc/aliases for all local users (uid >= 1000)..."
@@ -109,6 +115,9 @@ if [ -f "$CRONTAB_PATH" ]; then
 else
   CURRENT_CRONTAB=""
 fi
+
+# Repair older runs that wrote literal "\n" text instead of real newlines.
+CURRENT_CRONTAB=${CURRENT_CRONTAB//\\n/$'\n'}
 
 if echo "$CURRENT_CRONTAB" | grep -q '^MAILTO='; then
   NEW_CRONTAB=$(echo "$CURRENT_CRONTAB" | sed "s/^MAILTO=.*/MAILTO=\"$TO_EMAIL\"/")
