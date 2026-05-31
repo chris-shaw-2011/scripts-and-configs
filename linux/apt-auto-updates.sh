@@ -82,7 +82,7 @@ if systemctl list-unit-files | grep -q '^unattended-upgrades.service'; then
     log_debug "unattended-upgrades.service already enabled"
   fi
 else
-  log_warn "unattended-upgrades.service not found; skipping."
+  log_debug "unattended-upgrades.service not found; scheduled upgrades are handled by apt-daily-upgrade.timer."
 fi
 
 if systemctl list-unit-files | grep -q '^apt-daily.timer'; then
