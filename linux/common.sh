@@ -146,7 +146,7 @@ get_notification_email() {
     # Otherwise prompt user (keep prompting until non-empty)
     local email=""
     while [ -z "$email" ]; do
-        log_info "Email address not configured. Please enter the email address for notifications:"
+        log_info "Email address not configured. Please enter the email address for notifications:" >&2
         read -p "Email: " email
 
         if [ -z "$email" ]; then
