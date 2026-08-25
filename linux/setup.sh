@@ -24,6 +24,12 @@
 #     polkit authentication agent may be present.
 #
 # - Email notifications via Gmail (msmtp):
+#   - All local system email uses a durable disk-backed queue before SMTP delivery.
+#   - Temporary Internet/DNS/SMTP failures do NOT lose notifications or fail the
+#     originating systemd service. Queued messages are retried every minute until sent.
+#   - Queued messages survive reboot/shutdown.
+#   - Delivered notification mail includes the first delivery-attempt timestamp,
+#     successful-delivery timestamp, and number of delivery attempts.
 #   - Always send emails on BOOT and before REBOOT / SHUTDOWN.
 #   - Subjects always include the hostname.
 #   - unattended-upgrades sends mail only on changes/errors (MailReport=on-change).
@@ -56,7 +62,7 @@
 #   - Each sub-script is independent and can be run separately.
 #
 # To download and run this script:
-#   git clone https://github.com/chris-shaw-2011/scripts-and-configs.git \ 
+#   git clone https://github.com/chris-shaw-2011/scripts-and-configs.git \
 #   cd scripts-and-configs/linux \
 #   sudo ./setup.sh \
 
@@ -114,7 +120,7 @@ log_info "Step 2: Setting system timezone..."
 log_info ""
 log_info ""
 
-log_info "Step 3: Configuring msmtp and email..."
+log_info "Step 3: Configuring msmtp and durable email queue..."
 "$SCRIPT_DIR/msmtp-gmail.sh" "$@"
 log_info ""
 
@@ -135,6 +141,7 @@ log_info "Setup complete."
 log_info "======================================================================"
 log_info " - Automatic APT updates + randomized reboots between 01:00-04:00 ET are enabled."
 log_info " - unattended-upgrades uses a broad origin pattern so all configured APT sources are covered."
+log_info " - System notification email is queued locally and retried until SMTP delivery succeeds."
 log_info " - Daily health checks only email on issues (local disks/ZFS only, and only if pools actually exist)."
 log_info " - Weekly maintenance only emails on issues."
 log_info " - Boot/reboot events email on real boots/reboots, and all subjects include hostname."
