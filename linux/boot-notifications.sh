@@ -4,6 +4,11 @@
 #
 # Installs notification scripts and systemd services for boot and reboot events.
 # Sends email notifications after boot and before reboot/shutdown.
+#
+# Mail delivery itself is durable and asynchronous: msmtp-gmail.sh installs a
+# local sendmail-compatible queue that persists messages before attempting SMTP.
+# If Internet access is unavailable (for example while a pfSense VM is down),
+# the notification remains queued and is retried until delivery succeeds.
 
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 
@@ -22,16 +27,9 @@ UPTIME=$(uptime -s)
 SUBJECT="BOOTED: ${HOSTNAME}"
 BODY="The server ${HOSTNAME} has BOOTED UP at ${NOW}.\nUptime started at: ${UPTIME}."
 TO="__TO_EMAIL__"
-MAX_ATTEMPTS=12
-for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
-  echo -e "${BODY}" | mail -s "${SUBJECT}" "$TO" && exit 0
-  if [ "$attempt" -lt "$MAX_ATTEMPTS" ]; then
-    echo "[$(date)] Mail send failed, retrying in 5s... (${attempt}/${MAX_ATTEMPTS})"
-    sleep 5
-  fi
-done
-echo "[$(date)] Mail send failed after ${MAX_ATTEMPTS} attempts; giving up."
-exit 1
+
+# The local sendmail interface durably queues this before returning success.
+echo -e "${BODY}" | mail -s "${SUBJECT}" "$TO"
 EOF
 )
 
@@ -43,6 +41,9 @@ UPTIME=$(uptime -p)
 SUBJECT="REBOOTING: ${HOSTNAME}"
 BODY="The server ${HOSTNAME} is about to REBOOT or SHUT DOWN at ${NOW}.\nIt has been ${UPTIME}."
 TO="__TO_EMAIL__"
+
+# The local sendmail interface durably queues this before returning success, so
+# shutdown does not wait for Internet access and the message survives reboot.
 echo -e "${BODY}" | mail -s "${SUBJECT}" "$TO"
 EOF
 )
@@ -72,14 +73,12 @@ log_debug "Creating systemd service units (boot/reboot)..."
 
 NOTIFY_AFTER_BOOT=$(cat <<'EOF'
 [Unit]
-Description=Send email AFTER boot
-After=network-online.target
-Wants=network-online.target
+Description=Queue email AFTER boot
+After=local-fs.target
 
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/notify-after-boot.sh
-TimeoutStartSec=90
 
 [Install]
 WantedBy=multi-user.target
@@ -88,14 +87,14 @@ EOF
 
 NOTIFY_BEFORE_REBOOT=$(cat <<'EOF'
 [Unit]
-Description=Send email BEFORE system shutdown/reboot
+Description=Queue email BEFORE system shutdown/reboot
 DefaultDependencies=no
 Before=shutdown.target reboot.target halt.target
 
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/notify-before-reboot.sh
-TimeoutStartSec=0
+TimeoutStartSec=30
 
 [Install]
 WantedBy=halt.target reboot.target shutdown.target
