@@ -182,12 +182,13 @@ ensure_symlink() {
 ensure_packages_installed() {
     local missing=()
     local installed=()
-    local pkg
+    local pkg package_status
 
 		log_debug "Ensuring following packages are installed: $*"
 
     for pkg in "$@"; do
-        if dpkg -s "$pkg" >/dev/null 2>&1; then
+        package_status=$(dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null || true)
+        if [[ "$package_status" == *" ok installed" ]]; then
             installed+=("$pkg")
         else
             missing+=("$pkg")

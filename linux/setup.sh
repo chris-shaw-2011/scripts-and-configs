@@ -23,6 +23,11 @@
 #   - This is required for remote sessions (SSH, XRDP) where no interactive
 #     polkit authentication agent may be present.
 #
+# - Active Directory authentication (interactive and optional):
+#   - Join Ubuntu 24.04/26.04 or Proxmox VE 9.2 with realmd, adcli, and SSSD.
+#   - Restrict host login to one AD group and grant it password-protected sudo.
+#   - Enable home creation for existing PAM-based SSH, terminal, GDM, and XRDP logins.
+#
 # - Email notifications via Gmail (msmtp):
 #   - All local system email uses a durable disk-backed queue before SMTP delivery.
 #   - Temporary Internet/DNS/SMTP failures do NOT lose notifications or fail the
@@ -118,21 +123,24 @@ log_info ""
 log_info "Step 2: Setting system timezone..."
 "$SCRIPT_DIR/timezone-set.sh" "$@"
 log_info ""
+
+log_info "Step 3: Configuring Active Directory login..."
+"$SCRIPT_DIR/active-directory.sh" "$@"
 log_info ""
 
-log_info "Step 3: Configuring msmtp and durable email queue..."
+log_info "Step 4: Configuring msmtp and durable email queue..."
 "$SCRIPT_DIR/msmtp-gmail.sh" "$@"
 log_info ""
 
-log_info "Step 4: Configuring APT automatic updates..."
+log_info "Step 5: Configuring APT automatic updates..."
 "$SCRIPT_DIR/apt-auto-updates.sh" "$@"
 log_info ""
 
-log_info "Step 5: Setting up boot/reboot notifications..."
+log_info "Step 6: Setting up boot/reboot notifications..."
 "$SCRIPT_DIR/boot-notifications.sh" "$@"
 log_info ""
 
-log_info "Step 6: Setting up daily/weekly health checks..."
+log_info "Step 7: Setting up daily/weekly health checks..."
 "$SCRIPT_DIR/health-checks.sh" "$@"
 log_info ""
 
@@ -145,3 +153,4 @@ log_info " - System notification email is queued locally and retried until SMTP 
 log_info " - Daily health checks only email on issues (local disks/ZFS only, and only if pools actually exist)."
 log_info " - Weekly maintenance only emails on issues."
 log_info " - Boot/reboot events email on real boots/reboots, and all subjects include hostname."
+log_info " - Active Directory login is configured when selected during the interactive setup."
