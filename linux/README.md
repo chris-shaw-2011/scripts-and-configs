@@ -17,7 +17,9 @@ Automated setup and maintenance scripts for Debian/Ubuntu servers and desktops, 
 - Enables unattended APT updates from every configured APT origin
 - Uses a broad origin pattern so third-party repositories are covered by the same unattended-upgrades policy
 - Allows minor/point Proxmox upgrades (e.g., 9.0 → 9.1), but NOT major OS jumps
-- Automatically reboots when required, within a randomized window between 01:00–04:00 America/New_York (per-host randomization)
+- Automatically reboots when required at a random time in America/New_York: 01:00–01:30 for Proxmox VE hosts, 01:45–03:59 for KVM/QEMU guests, and 01:00–03:59 for other systems (all endpoints inclusive)
+- Detects Proxmox VE hosts from local installation information and assumes all detected KVM/QEMU guests are hosted by Proxmox in this environment
+- Reuses an existing valid reboot time on rerun; chooses a new time if it falls outside the detected machine's window
 
 ### Authorization & Reboot
 - Installs or updates a polkit rule that allows all regular users (UID ≥ 1000) to reboot the system via systemd/logind WITHOUT sudo

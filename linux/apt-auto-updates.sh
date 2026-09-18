@@ -14,26 +14,67 @@ ensure_packages_installed unattended-upgrades smartmontools
 
 TO_EMAIL=$(get_notification_email)
 
-randomize_reboot_time() {
-  local rand_minutes total_minutes reboot_hour reboot_minute
+select_reboot_window() {
+  local virtualization
 
-  # Choose a random reboot time between 01:00 and 03:59 (America/New_York)
-  # 1:00 = 60 minutes after midnight; range length = 180 minutes (3 hours)
-  rand_minutes=$((RANDOM % 180))  # 0–179
-  total_minutes=$((60 + rand_minutes))  # 60–239
-  reboot_hour=$((total_minutes / 60))    # 1–3
-  reboot_minute=$((total_minutes % 60))  # 0–59
+  REBOOT_MIN_MINUTES=60
+  REBOOT_MAX_MINUTES=239
+
+  # Check the local Proxmox installation first, including nested PVE hosts.
+  if is_proxmox; then
+    REBOOT_MAX_MINUTES=90
+    log_debug "Proxmox VE host detected; reboot window is 01:00–01:30 America/New_York."
+  elif command -v systemd-detect-virt >/dev/null 2>&1; then
+    # In this environment, all KVM/QEMU guests are hosted by Proxmox.
+    # No virtualization is a normal nonzero exit; common.sh enables set -e.
+    virtualization=$(systemd-detect-virt --vm 2>/dev/null || true)
+    case "$virtualization" in
+      kvm|qemu)
+        REBOOT_MIN_MINUTES=105
+        log_debug "KVM/QEMU guest detected; reboot window is 01:45–03:59 America/New_York."
+        ;;
+    esac
+  fi
+}
+
+reboot_time_is_valid() {
+  local total_minutes
+
+  [[ "$REBOOT_TIME" =~ ^([01][0-9]|2[0-3]):[0-5][0-9]$ ]] || return 1
+  # Leading zeroes in HH:MM must be interpreted as decimal, not octal.
+  total_minutes=$((10#${REBOOT_TIME:0:2} * 60 + 10#${REBOOT_TIME:3:2}))
+  ((total_minutes >= REBOOT_MIN_MINUTES && total_minutes <= REBOOT_MAX_MINUTES))
+}
+
+randomize_reboot_time() {
+  local range_length random_limit rand_minutes total_minutes reboot_hour reboot_minute
+
+  # Include both endpoints: 31 host, 135 guest, or 180 general-purpose minutes.
+  range_length=$((REBOOT_MAX_MINUTES - REBOOT_MIN_MINUTES + 1))
+  # RANDOM yields 0–32767; reject the remainder to avoid modulo bias.
+  random_limit=$((32768 - 32768 % range_length))
+  while :; do
+    rand_minutes=$RANDOM
+    if ((rand_minutes < random_limit)); then
+      break
+    fi
+  done
+  total_minutes=$((REBOOT_MIN_MINUTES + rand_minutes % range_length))
+  reboot_hour=$((total_minutes / 60))
+  reboot_minute=$((total_minutes % 60))
   printf -v REBOOT_TIME "%02d:%02d" "$reboot_hour" "$reboot_minute"
   log_info "Automatic reboot window randomized; this host will reboot when needed at approximately $REBOOT_TIME America/New_York."
 }
 
-# Check if reboot time is already configured, otherwise randomize it once.
-if [ -f /etc/apt/apt.conf.d/50unattended-upgrades ] && grep -q 'Unattended-Upgrade::Automatic-Reboot-Time' /etc/apt/apt.conf.d/50unattended-upgrades; then
-  REBOOT_TIME=$(grep 'Unattended-Upgrade::Automatic-Reboot-Time' /etc/apt/apt.conf.d/50unattended-upgrades | sed 's/.*"\([^"]*\)".*/\1/')
-  if [[ "$REBOOT_TIME" =~ ^([01][0-9]|2[0-3]):[0-5][0-9]$ ]]; then
+select_reboot_window
+
+# Reuse an active configured time only while it remains in this machine's window.
+if [ -f /etc/apt/apt.conf.d/50unattended-upgrades ] && grep -q '^[[:space:]]*Unattended-Upgrade::Automatic-Reboot-Time' /etc/apt/apt.conf.d/50unattended-upgrades; then
+  REBOOT_TIME=$(grep '^[[:space:]]*Unattended-Upgrade::Automatic-Reboot-Time' /etc/apt/apt.conf.d/50unattended-upgrades | sed 's/.*"\([^"]*\)".*/\1/')
+  if reboot_time_is_valid; then
     log_debug "Using existing reboot time: $REBOOT_TIME America/New_York"
   else
-    log_warn "Existing unattended-upgrades reboot time is invalid: $REBOOT_TIME; choosing a new randomized time."
+    log_warn "Existing unattended-upgrades reboot time is invalid or outside this machine's reboot window: $REBOOT_TIME; choosing a new randomized time."
     randomize_reboot_time
   fi
 else
