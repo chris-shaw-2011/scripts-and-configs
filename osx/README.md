@@ -40,7 +40,9 @@ That will:
    it Accessibility permission.
 4. Merge the rules from `windows-karabiner.json` into every profile in
    `~/.config/karabiner/karabiner.json`, replacing any prior versions.
-5. Run a post‑install sanity check and print a ✅/⚠/✗ summary.
+5. Merge a macOS-only VS Code keybinding that makes `Ctrl+C` copy in an editor
+   and interrupt in the integrated terminal.
+6. Run a post‑install sanity check and print a ✅/⚠/✗ summary.
 
 Re‑run any time. Everything is idempotent: unchanged files are left alone
 and existing rules are replaced in place, not duplicated.
@@ -63,6 +65,7 @@ Neither can be automated from a script; macOS forbids it.
 | [`keyboard-shortcuts.sh`](./keyboard-shortcuts.sh) | Configures `com.apple.symbolichotkeys` for Launchpad and Show Desktop. |
 | [`tiling-window-manager.sh`](./tiling-window-manager.sh) | Installs Rectangle, launches it, prints first‑run instructions if unconfigured. |
 | [`karabiner-install.sh`](./karabiner-install.sh) | Validates the source JSON, installs Karabiner‑Elements, merges rules into every profile of `karabiner.json`. |
+| [`vscode-keybindings-install.sh`](./vscode-keybindings-install.sh) | Safely merges the macOS-only `Ctrl+C` binding into VS Code and VS Code Insiders, preserving existing bindings and comments. |
 | [`diagnose-tiling.sh`](./diagnose-tiling.sh) | Read‑only diagnostic. Prints everything relevant to why `Option+Arrow` tiling might not be working. |
 
 ## Flags
@@ -116,6 +119,22 @@ Reports:
 - Whether Rectangle is installed, running, and has shortcuts bound.
 - Whether Rectangle has Accessibility permission (best‑effort).
 - The last 20 lines of the Karabiner user‑server log.
+
+## VS Code: copy in the editor, interrupt in the integrated terminal
+
+`Ctrl+C` must reach VS Code's integrated terminal unchanged so a shell or
+foreground program receives the interrupt character (`^C`). The Karabiner
+rule therefore leaves `Ctrl+C` native in VS Code and VS Code Insiders, while
+continuing to translate other Windows-style `Ctrl` shortcuts.
+
+`./setup.sh` merges the matching keybinding into VS Code's user
+`keybindings.json`, preserving existing bindings and comments. Its `when`
+clause includes `isMac`, so it cannot activate on Windows or Linux even if
+cross-platform keybinding sync is enabled. No extension is installed and no
+manual edit is needed. `Cmd+C` remains available for copying from the
+integrated terminal.
+
+After pulling this change, run `./setup.sh` to install both halves of the fix.
 
 ## Reset / uninstall
 

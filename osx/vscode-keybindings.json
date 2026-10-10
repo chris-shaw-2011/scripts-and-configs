@@ -1,0 +1,7 @@
+[
+  {
+    "key": "ctrl+c",
+    "command": "editor.action.clipboardCopyAction",
+    "when": "isMac && editorTextFocus && !terminalFocus"
+  }
+]

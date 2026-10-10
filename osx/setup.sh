@@ -34,6 +34,9 @@
 #           - Cmd  behaves as Alt
 #         so RDP sessions feel native.
 #
+#   - A macOS-only VS Code keybinding so Ctrl+C copies in editors but remains
+#     a terminal interrupt when the integrated terminal has focus.
+#
 # Usage:
 #   cd osx
 #   ./setup.sh                     # apply everything (safe defaults)
@@ -114,6 +117,10 @@ log_info "Step 3: Installing Karabiner-Elements config..."
 "$SCRIPT_DIR/karabiner-install.sh" "$@"
 log_info ""
 
+log_info "Step 4: Installing VS Code context-aware keybinding..."
+"$SCRIPT_DIR/vscode-keybindings-install.sh" "$@"
+log_info ""
+
 log_info "======================================================================"
 log_info "Post-install sanity check"
 log_info "======================================================================"
@@ -190,6 +197,7 @@ log_info "======================================================================
 log_info " - macOS shortcuts: Cmd+Shift+L = Launchpad, Cmd+Shift+D = Show Desktop."
 log_info " - Karabiner rules from windows-karabiner.json are merged into every"
 log_info "   profile of ~/.config/karabiner/karabiner.json."
+log_info " - VS Code: Ctrl+C copies in editors and interrupts in terminals."
 log_info " - Re-run this script any time windows-karabiner.json changes; rules"
 log_info "   are matched by description so they get replaced, not duplicated."
 log_info ""

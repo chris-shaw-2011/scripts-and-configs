@@ -343,7 +343,7 @@
       ]
     },
     {
-      "description": "[windows-karabiner] Windows-style Ctrl shortcuts for macOS apps (not Windows App / Terminal / iTerm2, with browser shortcuts)",
+      "description": "[windows-karabiner] Windows-style Ctrl shortcuts for macOS apps (Ctrl+C is native in VS Code terminal; not Windows App / Terminal / iTerm2, with browser shortcuts)",
       "manipulators": [
         {
           "type": "basic",
@@ -372,7 +372,9 @@
               "bundle_identifiers": [
                 "^com\\.microsoft\\.rdc\\.macos$",
                 "^com\\.apple\\.Terminal$",
-                "^com\\.googlecode\\.iterm2$"
+                "^com\\.googlecode\\.iterm2$",
+                "^com\\.microsoft\\.VSCode$",
+                "^com\\.microsoft\\.VSCodeInsiders$"
               ]
             }
           ]
