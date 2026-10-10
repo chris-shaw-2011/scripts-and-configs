@@ -132,9 +132,9 @@ check_ok()   { log_info "  ✓ $*"; }
 check_warn() { log_warn "  ! $*"; WARNED=1; }
 check_fail() { log_error "  ✗ $*"; FAILED=1; }
 
-# Karabiner-Elements running.
-if pgrep -x karabiner_grabber >/dev/null 2>&1 \
-   || pgrep -f karabiner_console_user_server >/dev/null 2>&1; then
+# Karabiner-Elements running. Use launchctl because macOS may deny pgrep/ps
+# visibility for Karabiner's launchd-managed services.
+if karabiner_is_running; then
   check_ok "Karabiner-Elements is running"
 else
   check_fail "Karabiner-Elements is not running — launch it once from /Applications"

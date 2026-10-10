@@ -9,8 +9,11 @@ SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 . "$(dirname "${BASH_SOURCE[0]}")/common.sh" "$SCRIPT_NAME" "$@"
 
 echo "==== 1. Is Karabiner-Elements running? ===="
-pgrep -lf karabiner_grabber || echo "  karabiner_grabber NOT running"
-pgrep -lf karabiner_console_user_server || echo "  karabiner_console_user_server NOT running"
+if karabiner_is_running; then
+  echo "  Karabiner Console User Server: running (launchd)"
+else
+  echo "  Karabiner Console User Server: NOT running"
+fi
 echo
 
 echo "==== 2. Active Karabiner profile ===="

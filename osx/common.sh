@@ -45,6 +45,18 @@ log_completed_execution() {
 
 export DEBUG
 
+# Current Karabiner-Elements releases run their user-side services through
+# launchd. macOS can deny process-list access to pgrep/ps even while the
+# service is healthy, so query launchd directly.
+karabiner_is_running() {
+  local user_id
+
+  user_id="$(id -u)"
+  launchctl print \
+    "gui/$user_id/org.pqrs.service.agent.Karabiner-Console-User-Server" \
+    2>/dev/null | grep -q '^[[:space:]]*state = running$'
+}
+
 # Check for --debug flag in arguments
 if [[ " $* " == *" --debug "* ]]; then
   DEBUG=1
