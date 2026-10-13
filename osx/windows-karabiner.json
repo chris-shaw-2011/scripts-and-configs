@@ -759,7 +759,8 @@
               "bundle_identifiers": [
                 "^com\\.microsoft\\.rdc\\.macos$",
                 "^com\\.apple\\.Terminal$",
-                "^com\\.googlecode\\.iterm2$"
+                "^com\\.googlecode\\.iterm2$",
+                "^org\\.mozilla\\.(firefox|firefoxdeveloperedition|nightly)$"
               ]
             }
           ]
@@ -793,7 +794,8 @@
               "bundle_identifiers": [
                 "^com\\.microsoft\\.rdc\\.macos$",
                 "^com\\.apple\\.Terminal$",
-                "^com\\.googlecode\\.iterm2$"
+                "^com\\.googlecode\\.iterm2$",
+                "^org\\.mozilla\\.(firefox|firefoxdeveloperedition|nightly)$"
               ]
             }
           ]
