@@ -18,20 +18,20 @@ select_reboot_window() {
   local virtualization
 
   REBOOT_MIN_MINUTES=60
-  REBOOT_MAX_MINUTES=239
+  REBOOT_MAX_MINUTES=119
 
   # Check the local Proxmox installation first, including nested PVE hosts.
   if is_proxmox; then
-    REBOOT_MAX_MINUTES=90
-    log_debug "Proxmox VE host detected; reboot window is 01:00–01:30 America/New_York."
+    REBOOT_MAX_MINUTES=80
+    log_debug "Proxmox VE host detected; reboot window is 01:00–01:20 America/New_York."
   elif command -v systemd-detect-virt >/dev/null 2>&1; then
     # In this environment, all KVM/QEMU guests are hosted by Proxmox.
     # No virtualization is a normal nonzero exit; common.sh enables set -e.
     virtualization=$(systemd-detect-virt --vm 2>/dev/null || true)
     case "$virtualization" in
       kvm|qemu)
-        REBOOT_MIN_MINUTES=105
-        log_debug "KVM/QEMU guest detected; reboot window is 01:45–03:59 America/New_York."
+        REBOOT_MIN_MINUTES=90
+        log_debug "KVM/QEMU guest detected; reboot window is 01:30–01:59 America/New_York."
         ;;
     esac
   fi
