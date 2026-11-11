@@ -18,9 +18,11 @@
 #
 # What it sets up:
 #
-#   - macOS symbolic hotkeys that the Karabiner config relies on:
+#   - macOS symbolic hotkeys:
 #       * "Show Launchpad" -> Cmd+Shift+L
 #       * "Show Desktop"   -> Cmd+Shift+D
+#       * Copy selected screenshot area to clipboard -> Option+Shift+S
+#   - Standard F1-F12 keys by default (hold Fn for media controls).
 #
 #   - Karabiner-Elements complex modifications (windows-karabiner.json):
 #       * Windows-style Ctrl shortcuts for macOS apps
@@ -43,8 +45,8 @@
 #   ./setup.sh --debug             # verbose logging
 #   ./setup.sh --force-shortcuts   # overwrite any custom bindings for the
 #                                  # macOS shortcuts we manage (Cmd+Shift+L,
-#                                  # Cmd+Shift+D). Without this flag, if you
-#                                  # have a custom binding on one of those,
+#                                  # Cmd+Shift+D, Option+Shift+S). Without this
+#                                  # flag, if you have a custom binding on one of those,
 #                                  # the script warns and leaves it alone.
 #   ./setup.sh --reset-shortcuts   # remove the macOS shortcut entries we
 #                                  # manage (revert to macOS defaults). The
@@ -53,6 +55,7 @@
 #                                  # (tap-Option -> Launchpad, Option+D ->
 #                                  # Show Desktop) will not work until you
 #                                  # re-run without --reset-shortcuts.
+#                                  # Function-key mode is left unchanged.
 #   ./setup.sh --diagnose          # run diagnose-tiling.sh and exit without
 #                                  # changing anything.
 
@@ -195,6 +198,9 @@ log_info "======================================================================
 log_info "Setup complete."
 log_info "======================================================================"
 log_info " - macOS shortcuts: Cmd+Shift+L = Launchpad, Cmd+Shift+D = Show Desktop."
+if [[ " $* " != *" --reset-shortcuts "* ]]; then
+  log_info " - Option+Shift+S = screenshot area to clipboard; F1-F12 = standard function keys."
+fi
 log_info " - Karabiner rules from windows-karabiner.json are merged into every"
 log_info "   profile of ~/.config/karabiner/karabiner.json."
 log_info " - VS Code: Ctrl+C copies in editors and interrupts in terminals."

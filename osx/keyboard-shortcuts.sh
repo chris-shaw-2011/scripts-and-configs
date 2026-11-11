@@ -2,14 +2,17 @@
 #
 # keyboard-shortcuts.sh
 #
-# Configures macOS symbolic hotkeys (System Settings -> Keyboard -> Shortcuts)
-# that the Karabiner-Elements complex modification rules depend on.
+# Configures macOS keyboard preferences and symbolic hotkeys
+# (System Settings -> Keyboard -> Shortcuts).
 #
 # Currently managed:
 #   - "Show Launchpad"  -> Cmd+Shift+L   (symbolichotkey id 160)
 #       (so that tap-Option in Karabiner can open Launchpad)
 #   - "Show Desktop"    -> Cmd+Shift+D   (symbolichotkey id 36)
 #       (so that Option+D in Karabiner can show the desktop)
+#   - "Copy picture of selected area to the clipboard" -> Option+Shift+S
+#       (symbolichotkey id 31; avoids Karabiner's Ctrl+4 remapping)
+#   - Use F1, F2, etc. as standard function keys; hold Fn for media controls.
 #
 # Behavior:
 #   - If a shortcut is unset or already matches the desired value, no prompt.
@@ -19,11 +22,11 @@
 # Flags:
 #   --force-shortcuts  Overwrite existing custom bindings with our values.
 #   --reset-shortcuts  Delete our managed entries entirely (revert to macOS
-#                      default) and exit without applying anything.
+#                      default) and exit without changing function-key mode.
 #
 # Idempotent: re-running with the same desired values is a no-op.
 # Backs up ~/Library/Preferences/com.apple.symbolichotkeys.plist before
-# making any changes.
+# changing shortcuts, and .GlobalPreferences.plist before changing Fn mode.
 
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 
@@ -57,11 +60,11 @@ if ! command -v jq >/dev/null 2>&1; then
   fi
 fi
 
-# Track whether we actually changed anything so we know to restart cfprefsd.
+# Track whether we actually changed anything so we know to activate settings.
 CHANGED=0
 
 # Managed symbolic hotkey ids (used by --reset-shortcuts).
-MANAGED_IDS=(160 36)
+MANAGED_IDS=(160 36 31)
 
 # Human-readable summary of a (key_char, key_code, modifiers) tuple.
 describe_binding() {
@@ -143,7 +146,7 @@ if [ "$RESET_SHORTCUTS" -eq 1 ]; then
   done
 
   if [ "$CHANGED" -eq 1 ]; then
-    /usr/bin/killall cfprefsd 2>/dev/null || true
+    /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u 2>/dev/null || true
     log_info "Done. Log out and back in (or restart) for macOS to fully pick up the reset."
   else
     log_info "Nothing to reset."
@@ -199,7 +202,7 @@ set_symbolic_hotkey() {
     if [ "$FORCE_SHORTCUTS" -eq 0 ]; then
       log_warn "  Skipping to preserve your customization. Re-run with --force-shortcuts to overwrite,"
       log_warn "  or with --reset-shortcuts to revert to macOS default first."
-      log_warn "  NOTE: the Karabiner rule that relies on this shortcut will not work until this is set."
+      log_warn "  NOTE: the requested shortcut will not be available until this is set."
       return 0
     fi
     log_warn "  --force-shortcuts passed; overwriting."
@@ -228,15 +231,27 @@ set_symbolic_hotkey 160 108 37 "$CMD_SHIFT" "Show Launchpad (Cmd+Shift+L)"
 #   key_code = virtual key for 'D' on US layout = 2
 set_symbolic_hotkey 36 100 2 "$CMD_SHIFT" "Show Desktop (Cmd+Shift+D)"
 
+# Use a native binding without Control so Karabiner does not turn it into
+# Cmd+Shift+4 (save to file).
+set_symbolic_hotkey 31 115 1 "$(( MOD_OPTION | MOD_SHIFT ))" "Copy selected area to clipboard (Option+Shift+S)"
+
+fn_state=$(/usr/bin/defaults read -g com.apple.keyboard.fnState 2>/dev/null || echo 0)
+if [ "$fn_state" != "1" ]; then
+  backup_if_exists "$HOME/Library/Preferences/.GlobalPreferences.plist"
+  /usr/bin/defaults write -g com.apple.keyboard.fnState -bool true
+  log_info "Enabled standard F1-F12 keys; hold Fn for media controls."
+  CHANGED=1
+fi
+
 if [ "$CHANGED" -eq 1 ]; then
-  log_info "Restarting cfprefsd so the new shortcuts take effect..."
-  /usr/bin/killall cfprefsd 2>/dev/null || true
+  log_info "Activating updated keyboard settings..."
+  /System/Library/PrivateFrameworks/SystemAdministration.framework/Resources/activateSettings -u 2>/dev/null || true
 
   log_info ""
   log_warn "Note: macOS may require you to log out and back in (or restart) for newly"
   log_warn "configured global shortcuts to be picked up by all running apps."
   log_warn "You can verify the bindings in:"
-  log_warn "  System Settings -> Keyboard -> Keyboard Shortcuts -> Launchpad & Dock / Mission Control"
+  log_warn "  System Settings -> Keyboard -> Keyboard Shortcuts -> Launchpad & Dock / Mission Control / Screenshots / Function Keys"
 else
   log_info "macOS keyboard shortcuts already configured; nothing to do."
 fi

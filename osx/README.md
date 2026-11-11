@@ -10,9 +10,11 @@ inside Microsoft Remote Desktop / Windows App). Installs and configures:
   `Ctrl+Option+Left/Right/Up` for Left Half / Right Half / Maximize.
   Karabiner’s tiling rule sends exactly those keys when you press
   `Option+Left/Right/Up`.
-- **Two macOS symbolic hotkeys** the Karabiner rules depend on:
+- **macOS keyboard preferences and symbolic hotkeys**:
   - `Cmd+Shift+L` → Show Launchpad
   - `Cmd+Shift+D` → Show Desktop
+  - `Option+Shift+S` → Select a screenshot area and copy it to the clipboard
+  - **F1-F12 are standard function keys**; hold `Fn` for media controls
 
 Everything is user‑scoped. Do **not** run these scripts with `sudo`.
 `common.sh` refuses to run as root and on non‑Darwin systems.
@@ -35,7 +37,7 @@ That will:
 
 1. Install any missing dependencies via Homebrew (`jq`, `karabiner-elements`,
    `rectangle`).
-2. Configure the two macOS symbolic hotkeys.
+2. Configure the three macOS symbolic hotkeys and enable standard F1-F12 keys.
 3. Launch Rectangle so you can accept the **Recommended** preset and grant
    it Accessibility permission.
 4. Merge the rules from `windows-karabiner.json` into every profile in
@@ -62,7 +64,7 @@ Neither can be automated from a script; macOS forbids it.
 |---|---|
 | [`setup.sh`](./setup.sh) | Orchestrator. Runs the three step scripts, then a sanity check. |
 | [`common.sh`](./common.sh) | Shared logging + helpers. Refuses to run as root / on non‑macOS. |
-| [`keyboard-shortcuts.sh`](./keyboard-shortcuts.sh) | Configures `com.apple.symbolichotkeys` for Launchpad and Show Desktop. |
+| [`keyboard-shortcuts.sh`](./keyboard-shortcuts.sh) | Configures Launchpad, Show Desktop, and screenshot-to-clipboard shortcuts; enables standard F1-F12 keys. |
 | [`tiling-window-manager.sh`](./tiling-window-manager.sh) | Installs Rectangle, launches it, prints first‑run instructions if unconfigured. |
 | [`karabiner-install.sh`](./karabiner-install.sh) | Validates the source JSON, installs Karabiner‑Elements, merges rules into every profile of `karabiner.json`. |
 | [`vscode-keybindings-install.sh`](./vscode-keybindings-install.sh) | Safely merges the macOS-only `Ctrl+C` binding into VS Code and VS Code Insiders, preserving existing bindings and comments. |
@@ -120,6 +122,28 @@ Reports:
 - Whether Rectangle has Accessibility permission (best‑effort).
 - The last 20 lines of the Karabiner user‑server log.
 
+## Screenshots and function keys
+
+Press `Option+Shift+S`, drag to select an area, then paste the screenshot into
+an app that accepts images. This native shortcut avoids the Windows-style
+Karabiner `Ctrl+4` mapping, which removes Control from `Ctrl+Cmd+Shift+4`
+and turns the clipboard shortcut into a save-to-file screenshot.
+
+Existing custom screenshot bindings are preserved unless you pass
+`--force-shortcuts`, just like the Launchpad and Show Desktop bindings.
+
+Setup enables **Use F1, F2, etc. keys as standard function keys** automatically.
+Some external keyboards also require their own Fn-lock setting (for example,
+in Logi Options+). Setup does not change vendor-specific keyboard settings.
+Settings are activated immediately where supported; log out and back in if
+they have not taken effect.
+
+To apply only these keyboard preferences and shortcuts, run:
+
+```zsh
+./keyboard-shortcuts.sh
+```
+
 ## VS Code: copy in the editor, interrupt in the integrated terminal
 
 `Ctrl+C` must reach VS Code's integrated terminal unchanged so a shell or
@@ -139,7 +163,11 @@ After pulling this change, run `./setup.sh` to install both halves of the fix.
 ## Reset / uninstall
 
 - **macOS keyboard shortcuts back to defaults**:
-  `./setup.sh --reset-shortcuts`
+  `./setup.sh --reset-shortcuts` (includes the screenshot binding; leaves
+  function-key mode unchanged)
+- **Media keys by default again**: turn off **Use F1, F2, etc. keys as
+  standard function keys** in System Settings → Keyboard → Keyboard Shortcuts
+  → Function Keys. Re-running setup enables standard function keys again.
 - **Karabiner rules only**: delete rules whose description starts with
   `[windows-karabiner]` from the active profile in
   `~/.config/karabiner/karabiner.json`, or uninstall Karabiner‑Elements
